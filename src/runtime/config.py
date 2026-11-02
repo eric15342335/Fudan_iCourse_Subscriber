@@ -193,6 +193,12 @@ USE_OFFICIAL_TRANSCRIPT = (
     in ("1", "true", "yes")
 )
 
+# Courses whose slide OCR is unusable (e.g. no readable slide recording): the
+# summary then relies on the transcript alone.  Comma-separated course IDs.
+NO_OCR_COURSE_IDS = {
+    c.strip() for c in os.environ.get("NO_OCR_COURSE_IDS", "").split(",") if c.strip()
+}
+
 # 监控的课程 ID 列表
 COURSE_IDS = [
     c.strip()

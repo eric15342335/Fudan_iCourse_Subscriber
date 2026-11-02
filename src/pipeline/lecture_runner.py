@@ -352,10 +352,17 @@ class LectureRunner:
     def _summarize(self, sub_id: str, course_title: str, transcript: str,
                    transcript_segments: list[dict] | None) -> Optional[str]:
         try:
-            kept_pages = self._db.get_done_ppt_pages(sub_id)
+            no_ocr = self._db.get_lecture(sub_id)["course_id"] in config.NO_OCR_COURSE_IDS
+            kept_pages = [] if no_ocr else self._db.get_done_ppt_pages(sub_id)
             prompt_text, mode = bucketer.assemble(
                 transcript, transcript_segments, kept_pages,
             )
+            if no_ocr:
+                prompt_text = (
+                    "【注意】本课程没有可用的PPT文字，以下只有录音识别文本，"
+                    "其中的同音字、专有名词和英文术语错误较多，请结合上下文尽力还原。\n\n"
+                    + prompt_text
+                )
             self._reporter.info(
                 f"    [Time] Generating summary at "
                 f"{time.strftime('%H:%M:%S')}"

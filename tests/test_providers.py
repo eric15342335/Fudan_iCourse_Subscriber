@@ -20,3 +20,17 @@ def test_claude_effort_defaults_to_max():
     from src.runtime import config
 
     assert config.SUMMARY_EFFORT == "max"
+
+
+def test_no_ocr_course_ids_parsed(monkeypatch):
+    import importlib
+
+    from src.runtime import config
+
+    monkeypatch.setenv("NO_OCR_COURSE_IDS", " 38985, 1 ,")
+    importlib.reload(config)
+    try:
+        assert config.NO_OCR_COURSE_IDS == {"38985", "1"}
+    finally:
+        monkeypatch.delenv("NO_OCR_COURSE_IDS")
+        importlib.reload(config)

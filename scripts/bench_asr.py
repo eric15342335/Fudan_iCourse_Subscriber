@@ -10,6 +10,7 @@ to ``--out`` so two providers can be diffed.  Honours ASR_* env like the pipelin
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import time
@@ -57,6 +58,12 @@ def main() -> None:
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
             f.write(text)
+        # Segments keep timestamps (offset by --skip) so two runs can be aligned.
+        for s in segs:
+            s["start_ms"] += int(args.skip * 1000)
+            s["end_ms"] += int(args.skip * 1000)
+        with open(args.out + ".json", "w", encoding="utf-8") as f:
+            json.dump(segs, f, ensure_ascii=False)
 
 
 if __name__ == "__main__":

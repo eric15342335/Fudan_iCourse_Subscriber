@@ -20,9 +20,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import requests
 
-from main import _check_session
-from src.ai.summarizer import Summarizer
 from src.ai.transcriber import Transcriber
+
+# Load the ASR model before anything imports rapidocr: its own onnxruntime.dll would
+# otherwise win and the sherpa-onnx CUDA provider fails to load (silent CPU fallback).
+TRANSCRIBER = Transcriber()
+TRANSCRIBER._init()
+
+from main import _check_session  # noqa: E402
+from src.ai.summarizer import Summarizer  # noqa: E402
 from src.api.icourse import ICourseClient
 from src.api.webvpn import WebVPNSession
 from src.data.database import Database
@@ -69,7 +75,7 @@ def main() -> None:
         picks.append((cid, detail["title"], lec))
 
     scheduler = Scheduler(reporter=reporter)
-    runner = LectureRunner(client, db, scheduler, Transcriber(), Summarizer(), reporter)
+    runner = LectureRunner(client, db, scheduler, TRANSCRIBER, Summarizer(), reporter)
     try:
         if picks:
             runner.prefetch_first(picks[0][0], str(picks[0][2]["sub_id"]))
