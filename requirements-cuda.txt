@@ -1,0 +1,8 @@
+# Replaces the CPU sherpa-onnx wheel; use a separate venv.
+--find-links https://k2-fsa.github.io/sherpa/onnx/cuda.html
+sherpa-onnx==2.0.1+cuda12.cudnn9
+nvidia-cudnn-cu12
+nvidia-cublas-cu12
+nvidia-cuda-runtime-cu12
+nvidia-cufft-cu12
+nvidia-curand-cu12

@@ -162,6 +162,18 @@ _EDGE_PUNCT = " \t　.。,，;；!！?？"
 _REPEAT_RE = re.compile(r"([一-鿿]{1,8}?)\1{2,}")
 
 
+def _add_cuda_dll_dirs() -> None:
+    """Make the pip-installed ``nvidia-*-cu12`` runtime DLLs findable (Windows)."""
+    import glob
+    import site
+    if not hasattr(os, "add_dll_directory"):
+        return
+    for root in site.getsitepackages():
+        for d in glob.glob(os.path.join(root, "nvidia", "*", "bin")):
+            os.add_dll_directory(d)
+            os.environ["PATH"] = d + os.pathsep + os.environ["PATH"]
+
+
 def _postprocess_segment(text: str) -> str:
     """Strip cross-backend ASR noise from one recognized segment."""
     text = _BRACKET_TOK_RE.sub("", text)
@@ -200,7 +212,9 @@ class Transcriber:
 
     def __init__(self, backend: Optional[str] = None,
                  model_dir: Optional[str] = None,
-                 num_threads: Optional[int] = None):
+                 num_threads: Optional[int] = None,
+                 provider: Optional[str] = None):
+        self._provider = (provider or config.ASR_PROVIDER).lower()
         self._backend = (backend or config.ASR_BACKEND).lower()
         self._model_dir = model_dir or config.ASR_MODEL_DIR
         self._num_threads = num_threads or config.ASR_NUM_THREADS
@@ -219,6 +233,8 @@ class Transcriber:
             return
 
         backend = self._backend
+        if self._provider == "cuda":
+            _add_cuda_dll_dirs()
         if backend == "firered":
             self._recognizer = self._init_firered()
         elif backend == "sensevoice":
@@ -259,7 +275,7 @@ class Transcriber:
         self._vad_config.sample_rate = SAMPLE_RATE
         self._reset_vad()
         print(f"[Transcriber] Model loaded (backend={backend}, "
-              f"threads={self._num_threads}).")
+              f"threads={self._num_threads}, provider={self._provider}).")
 
     def _resolve_first(self, dir_: str, candidates: list[str]) -> str:
         """Return the first existing path in dir_ matching any candidate name."""
@@ -283,6 +299,7 @@ class Transcriber:
             model=model_path,
             tokens=tokens_path,
             num_threads=self._num_threads,
+            provider=self._provider,
             debug=False,
         )
 
@@ -299,6 +316,7 @@ class Transcriber:
         return sherpa_onnx.OfflineRecognizer.from_fire_red_asr(
             encoder=enc, decoder=dec, tokens=tokens_path,
             num_threads=self._num_threads, debug=False,
+            provider=self._provider,
         )
 
     def _init_sensevoice(self):
@@ -313,6 +331,7 @@ class Transcriber:
             model=model_path,
             tokens=tokens_path,
             num_threads=self._num_threads,
+            provider=self._provider,
             use_itn=True,
             debug=False,
         )
@@ -341,6 +360,7 @@ class Transcriber:
             encoder=enc, decoder=dec, joiner=joi,
             tokens=tokens_path,
             num_threads=self._num_threads,
+            provider=self._provider,
             debug=False,
         )
 

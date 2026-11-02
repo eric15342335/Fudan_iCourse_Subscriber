@@ -163,6 +163,9 @@ SILERO_VAD_PATH = os.environ.get("SILERO_VAD_PATH", "silero_vad.onnx")
 ASR_BACKEND = os.environ.get("ASR_BACKEND", "sensevoice").strip().lower()
 # Inference thread count.  4 fully saturates a 4-vCPU GitHub runner.
 ASR_NUM_THREADS = int(os.environ.get("ASR_NUM_THREADS", "4"))
+# onnxruntime execution provider: "cpu" (default) or "cuda" (needs the
+# sherpa-onnx CUDA wheel, see requirements-cuda.txt).
+ASR_PROVIDER = os.environ.get("ASR_PROVIDER", "cpu").strip().lower()
 
 # ── Scheduler concurrency knobs.  All overridable via env. ────────────────
 # image_pool: image downloads are tiny and IO-bound, 20 saturates bandwidth

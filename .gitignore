@@ -53,4 +53,5 @@ db-viewer/
 # Shard inspection temp files
 _shard_inspect/
 .venv/
+.venv-cuda/
 models/
