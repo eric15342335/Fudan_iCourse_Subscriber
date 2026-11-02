@@ -157,9 +157,15 @@ _ORPHAN_PUNCT_RE = re.compile(r"[\s.。,，;；!！?？]{2,}")
 _EDGE_PUNCT = " \t　.。,，;；!！?？"
 
 
+# Decoder loops / stutters: a CJK run of 1-8 chars repeated 3+ times → once.
+# CJK-only so digits ("1000") and Latin text are never collapsed.
+_REPEAT_RE = re.compile(r"([一-鿿]{1,8}?)\1{2,}")
+
+
 def _postprocess_segment(text: str) -> str:
     """Strip cross-backend ASR noise from one recognized segment."""
     text = _BRACKET_TOK_RE.sub("", text)
+    text = _REPEAT_RE.sub(r"\1", text)
     # Japanese / Korean kana — always noise in Chinese lectures
     text = _JP_NOISE_RE.sub("", text)
     text = _KR_NOISE_RE.sub("", text)
@@ -246,7 +252,10 @@ class Transcriber:
         #                                       up-to-30s windows; matches
         #                                       its receptive field
         self._vad_config.silero_vad.min_silence_duration = 0.8
-        self._vad_config.silero_vad.max_speech_duration = 30.0
+        # AED loops ("嗯嗯嗯…") on long chunks; 12 s was clean in testing.
+        self._vad_config.silero_vad.max_speech_duration = (
+            12.0 if backend == "firered-aed" else 30.0
+        )
         self._vad_config.sample_rate = SAMPLE_RATE
         self._reset_vad()
         print(f"[Transcriber] Model loaded (backend={backend}, "
