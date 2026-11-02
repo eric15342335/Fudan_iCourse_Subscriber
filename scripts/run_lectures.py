@@ -14,6 +14,7 @@ import argparse
 import os
 import sys
 import time
+import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -77,7 +78,11 @@ def main() -> None:
             if i + 1 < len(picks):
                 nxt = (picks[i + 1][0], str(picks[i + 1][2]["sub_id"]))
             _check_session(client)
-            summary = runner.run(cid, title, lec, next_info=nxt)
+            try:
+                summary = runner.run(cid, title, lec, next_info=nxt)
+            except Exception:  # keep going; the runner already recorded the error
+                traceback.print_exc()
+                continue
             if summary:
                 path = os.path.join(args.out_dir, f"{lec['date']} {title}.md")
                 with open(path, "w", encoding="utf-8") as f:
