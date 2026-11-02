@@ -143,6 +143,7 @@ SILERO_VAD_PATH = os.environ.get("SILERO_VAD_PATH", "silero_vad.onnx")
 # ASR_MODEL_DIR must point at a matching sherpa-onnx model bundle:
 #   sensevoice — sherpa-onnx-sense-voice-* (multi-lang CTC, single model)
 #   firered    — sherpa-onnx-fire-red-asr2-ctc-* (CTC, single model.onnx)
+#   firered-aed — sherpa-onnx-fire-red-asr2-zh_en-* (AED, encoder/decoder)
 #   zipformer  — sherpa-onnx-zipformer-* (transducer, encoder/decoder/joiner)
 ASR_BACKEND = os.environ.get("ASR_BACKEND", "sensevoice").strip().lower()
 # Inference thread count.  4 fully saturates a 4-vCPU GitHub runner.

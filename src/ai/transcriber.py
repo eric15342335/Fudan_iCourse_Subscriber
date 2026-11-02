@@ -219,10 +219,12 @@ class Transcriber:
             self._recognizer = self._init_sensevoice()
         elif backend == "zipformer":
             self._recognizer = self._init_zipformer()
+        elif backend == "firered-aed":
+            self._recognizer = self._init_firered_aed()
         else:
             raise ValueError(
                 f"Unknown ASR_BACKEND={backend!r}; expected "
-                f"firered / sensevoice / zipformer"
+                f"firered / firered-aed / sensevoice / zipformer"
             )
 
         vad_path = config.SILERO_VAD_PATH
@@ -273,6 +275,21 @@ class Transcriber:
             tokens=tokens_path,
             num_threads=self._num_threads,
             debug=False,
+        )
+
+    def _init_firered_aed(self):
+        # FireRedASR2 AED (encoder + decoder).  Best reported Mandarin CER of
+        # the sherpa-onnx-packaged models; the 30 s VAD cap keeps segments
+        # well under AED's 60 s hallucination limit.
+        enc = self._resolve_first(self._model_dir, ["encoder.int8.onnx", "encoder.onnx"])
+        dec = self._resolve_first(self._model_dir, ["decoder.int8.onnx", "decoder.onnx"])
+        tokens_path = os.path.join(self._model_dir, "tokens.txt")
+        if not os.path.isfile(tokens_path):
+            raise FileNotFoundError(f"tokens.txt missing in {self._model_dir}")
+        print(f"[Transcriber] Loading FireRedASR2 AED from {self._model_dir}...")
+        return sherpa_onnx.OfflineRecognizer.from_fire_red_asr(
+            encoder=enc, decoder=dec, tokens=tokens_path,
+            num_threads=self._num_threads, debug=False,
         )
 
     def _init_sensevoice(self):
