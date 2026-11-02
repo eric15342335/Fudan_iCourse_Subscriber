@@ -4,6 +4,8 @@ STUDENT_ID = os.environ.get("StuId", "")
 PASSWORD = os.environ.get("UISPsw", "")
 
 WEBVPN_BASE = "https://webvpn.fudan.edu.cn"
+# Set USE_WEBVPN=0 when the network can reach icourse/id.fudan.edu.cn directly.
+USE_WEBVPN = os.environ.get("USE_WEBVPN", "1").strip().lower() not in ("0", "false", "no")
 IDP_BASE = "https://id.fudan.edu.cn"
 ICOURSE_BASE = "https://icourse.fudan.edu.cn"
 

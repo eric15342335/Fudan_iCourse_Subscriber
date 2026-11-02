@@ -553,9 +553,10 @@ class ICourseClient:
             (vpn_url, http_headers) where http_headers is ffmpeg-compatible.
         """
         vpn_url = get_vpn_url(video_url)
+        # Direct mode: the signed URL is enough; don't leak session cookies to the video host.
         cookies = "; ".join(
             f"{c.name}={c.value}" for c in self.vpn.session.cookies
-        )
+        ) if config.USE_WEBVPN else ""
         headers = f"Cookie: {cookies}\r\nUser-Agent: {config.USER_AGENT}\r\n"
         return vpn_url, headers
 

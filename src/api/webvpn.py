@@ -50,6 +50,8 @@ def get_vpn_url(url: str) -> str:
         ->
         https://webvpn.fudan.edu.cn/https/77726476706e69737468656265737421f9f44e.../courseapi/v3/...
     """
+    if not config.USE_WEBVPN:
+        return url
     parsed = urlparse(url)
     protocol = parsed.scheme
     hostname = parsed.hostname
@@ -125,6 +127,10 @@ class WebVPNSession:
 
         Returns True on success, raises on failure.
         """
+        if not config.USE_WEBVPN:  # direct mode: only the iCourse CAS login is needed
+            self.logged_in = True
+            return True
+
         student_id = student_id or config.STUDENT_ID
         password = password or config.PASSWORD
 
@@ -186,13 +192,15 @@ class WebVPNSession:
         # Pre-flight: probe the WebVPN portal.  A cold session redirects to
         # /login instantly (status 302); a hot session returns 200.  Fail
         # fast on cold — login_with_retry() in main.py will re-login.
-        warmup = self.session.get(
-            config.WEBVPN_BASE + "/", allow_redirects=False, timeout=5,
-        )
-        if warmup.status_code != 200:
-            raise RuntimeError("WebVPN session cold — re-login needed")
+        if config.USE_WEBVPN:
+            warmup = self.session.get(
+                config.WEBVPN_BASE + "/", allow_redirects=False, timeout=5,
+            )
+            if warmup.status_code != 200:
+                raise RuntimeError("WebVPN session cold — re-login needed")
 
         idp_vpn_base = get_vpn_url(config.IDP_BASE)
+        origin = config.WEBVPN_BASE if config.USE_WEBVPN else config.IDP_BASE
 
         # Step 1: Initiate CAS login via casapi.  Use allow_redirects=True
         # so requests follows the full redirect chain like a browser.
@@ -236,7 +244,7 @@ class WebVPNSession:
             headers={
                 "Content-Type": "application/json",
                 "Referer": f"{idp_vpn_base}/ac/",
-                "Origin": config.WEBVPN_BASE,
+                "Origin": origin,
             },
             timeout=60,
         )
@@ -292,7 +300,7 @@ class WebVPNSession:
             headers={
                 "Content-Type": "application/json",
                 "Referer": f"{idp_vpn_base}/ac/",
-                "Origin": config.WEBVPN_BASE,
+                "Origin": origin,
             },
             timeout=60,
         )
@@ -316,7 +324,7 @@ class WebVPNSession:
             data={"loginToken": login_token},
             headers={
                 "Referer": f"{idp_vpn_base}/ac/",
-                "Origin": config.WEBVPN_BASE,
+                "Origin": origin,
             },
             timeout=60,
         )
