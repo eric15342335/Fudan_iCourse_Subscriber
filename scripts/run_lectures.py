@@ -80,7 +80,7 @@ def main() -> None:
             _check_session(client)
             try:
                 summary = runner.run(cid, title, lec, next_info=nxt)
-            except Exception:  # keep going; the runner already recorded the error
+            except Exception:  # noqa: BLE001 - keep going; the runner already recorded the error
                 traceback.print_exc()
                 continue
             if summary:
