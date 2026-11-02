@@ -14,3 +14,9 @@ def test_summarize_dispatches_to_claude(monkeypatch):
     s = summarizer.Summarizer()
     monkeypatch.setattr(s, "_call_claude", lambda model, title, content: f"ok:{model}")
     assert s.summarize("t", "body") == ("ok:claude-opus-5-5", "claude/claude-opus-5-5")
+
+
+def test_claude_effort_defaults_to_max():
+    from src.runtime import config
+
+    assert config.SUMMARY_EFFORT == "max"

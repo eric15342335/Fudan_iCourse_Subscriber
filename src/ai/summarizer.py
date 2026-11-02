@@ -102,6 +102,7 @@ class Summarizer:
 
         opts = ClaudeAgentOptions(
             model=model, system_prompt=SYSTEM_PROMPT, tools=[], max_turns=1,
+            effort=config.SUMMARY_EFFORT,
             setting_sources=[],  # don't load CLAUDE.md / hooks from cwd
             env={"ANTHROPIC_API_KEY": ""},  # force subscription, not API billing
         )

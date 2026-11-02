@@ -184,6 +184,9 @@ VIDEO_DOWNLOAD_CONCURRENCY = int(
     os.environ.get("VIDEO_DOWNLOAD_CONCURRENCY", "2")
 )
 
+# Claude reasoning effort for summaries: low / medium / high / xhigh / max.
+SUMMARY_EFFORT = os.environ.get("SUMMARY_EFFORT", "max").strip().lower()
+
 # 是否优先使用 iCourse 官方字幕（跳过 ASR 转录）。默认关闭。
 USE_OFFICIAL_TRANSCRIPT = (
     os.environ.get("USE_OFFICIAL_TRANSCRIPT", "").strip().lower()
