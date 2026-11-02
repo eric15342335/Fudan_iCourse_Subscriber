@@ -235,3 +235,12 @@ Schema 迁移：新增列时，旧的 shard 与新的 schema 之间存在列数�
 - **排队论**：DynamicSemaphore 的可调整并发池，系统过载时减少服务窗口，负载下降后恢复。不影响正在服务的 worker，只影响等待队列。
 - **CRDT 思想**：merge_db.py 的 field-level COALESCE，最终一致的并发合并策略。
 - **内容寻址存储**：前端以 git blob SHA 为 shard 缓存键，相同内容产生相同 SHA 的特性直接复用。
+
+## 本地运行（无需 GitHub Actions）
+
+- **更强的本地 ASR**：下载 `sherpa-onnx-fire-red-asr2-zh_en-int8-2026-02-26` 与 `silero_vad.onnx`
+  （[asr-models](https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models)），设置
+  `ASR_BACKEND=firered-aed`、`ASR_MODEL_DIR=<模型目录>`、`SILERO_VAD_PATH=<vad 路径>`。
+- **用 Claude 订阅做总结**：`pip install -r requirements-claude.txt`，先 `claude login`，
+  再设置 `USE_CLAUDE_SUBSCRIPTION=1`（仅限个人使用；会忽略 `ANTHROPIC_API_KEY`）。
+- **处理本地录像**：`python scripts/summarize_local.py "<视频>" --title <课程名>`，结果写入 `temp/summaries/`。
