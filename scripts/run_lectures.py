@@ -16,6 +16,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import requests
+
 from main import _check_session
 from src.ai.summarizer import Summarizer
 from src.ai.transcriber import Transcriber
@@ -35,9 +37,16 @@ def main() -> None:
     os.makedirs(args.out_dir, exist_ok=True)
 
     db, reporter = Database(), Reporter()
-    vpn = WebVPNSession()
-    vpn.login()
-    vpn.authenticate_icourse()
+    for attempt in range(3):
+        try:
+            vpn = WebVPNSession()
+            vpn.login()
+            vpn.authenticate_icourse()
+            break
+        except requests.RequestException as e:  # network blips only; auth errors raise
+            if attempt == 2:
+                raise
+            print(f"  Network error ({type(e).__name__}); retrying login...")
     client = ICourseClient(vpn)
 
     picks = []
