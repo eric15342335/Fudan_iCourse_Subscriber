@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -37,16 +38,20 @@ def main() -> None:
     os.makedirs(args.out_dir, exist_ok=True)
 
     db, reporter = Database(), Reporter()
-    for attempt in range(3):
+    for attempt in range(5):
         try:
             vpn = WebVPNSession()
             vpn.login()
             vpn.authenticate_icourse()
             break
-        except requests.RequestException as e:  # network blips only; auth errors raise
-            if attempt == 2:
+        except (requests.RequestException, RuntimeError) as e:
+            # Retry network blips and a cold WebVPN session only; real auth
+            # failures ("Authentication failed (code=...)") raise at once.
+            transient = isinstance(e, requests.RequestException) or "cold" in str(e)
+            if not transient or attempt == 4:
                 raise
-            print(f"  Network error ({type(e).__name__}); retrying login...")
+            print(f"  Transient login error ({type(e).__name__}); retrying...")
+            time.sleep(10)
     client = ICourseClient(vpn)
 
     picks = []
