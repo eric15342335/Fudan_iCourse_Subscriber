@@ -17,6 +17,7 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_v1_5
 import base64
 
+from src.api import direct
 from src.runtime import config, fork_config
 
 
@@ -121,16 +122,14 @@ class WebVPNSession:
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": config.USER_AGENT})
         self.logged_in = False
+        if not fork_config.USE_WEBVPN:
+            direct.install(self)
 
     def login(self, student_id: str = None, password: str = None) -> bool:
         """Execute the full 7-step IDP authentication flow.
 
         Returns True on success, raises on failure.
         """
-        if not fork_config.USE_WEBVPN:  # direct mode: only the iCourse CAS login is needed
-            self.logged_in = True
-            return True
-
         student_id = student_id or config.STUDENT_ID
         password = password or config.PASSWORD
 
@@ -192,15 +191,13 @@ class WebVPNSession:
         # Pre-flight: probe the WebVPN portal.  A cold session redirects to
         # /login instantly (status 302); a hot session returns 200.  Fail
         # fast on cold — login_with_retry() in main.py will re-login.
-        if fork_config.USE_WEBVPN:
-            warmup = self.session.get(
-                config.WEBVPN_BASE + "/", allow_redirects=False, timeout=5,
-            )
-            if warmup.status_code != 200:
-                raise RuntimeError("WebVPN session cold — re-login needed")
+        warmup = self.session.get(
+            config.WEBVPN_BASE + "/", allow_redirects=False, timeout=5,
+        )
+        if warmup.status_code != 200:
+            raise RuntimeError("WebVPN session cold — re-login needed")
 
         idp_vpn_base = get_vpn_url(config.IDP_BASE)
-        origin = config.WEBVPN_BASE if fork_config.USE_WEBVPN else config.IDP_BASE
 
         # Step 1: Initiate CAS login via casapi.  Use allow_redirects=True
         # so requests follows the full redirect chain like a browser.
@@ -244,7 +241,7 @@ class WebVPNSession:
             headers={
                 "Content-Type": "application/json",
                 "Referer": f"{idp_vpn_base}/ac/",
-                "Origin": origin,
+                "Origin": config.WEBVPN_BASE,
             },
             timeout=60,
         )
@@ -300,7 +297,7 @@ class WebVPNSession:
             headers={
                 "Content-Type": "application/json",
                 "Referer": f"{idp_vpn_base}/ac/",
-                "Origin": origin,
+                "Origin": config.WEBVPN_BASE,
             },
             timeout=60,
         )
@@ -324,7 +321,7 @@ class WebVPNSession:
             data={"loginToken": login_token},
             headers={
                 "Referer": f"{idp_vpn_base}/ac/",
-                "Origin": origin,
+                "Origin": config.WEBVPN_BASE,
             },
             timeout=60,
         )

@@ -1,7 +1,7 @@
 # Fork notes
 
-This fork (eric15342335) tracks `origin` (LeafCreeper). Keep edits to upstream files
-small so `git merge origin/main` stays easy; put new code in new files.
+This fork (eric15342335) tracks `origin` (LeafCreeper). Fork code lives in fork-only files;
+upstream files carry only tiny hooks, so `git merge origin/main` stays easy.
 
 ## Sync
 
@@ -9,22 +9,30 @@ small so `git merge origin/main` stays easy; put new code in new files.
 git config rerere.enabled true
 git config merge.conflictstyle zdiff3
 git fetch origin && git merge origin/main
-python -m pytest tests
+python -m pytest tests   # includes a guard test for every upstream method the fork overrides
 ```
 
-## Edits to upstream files
+## Hooks in upstream files
 
-| File | Change |
-|------|--------|
-| `src/ai/transcriber.py` | `provider` argument, `firered-aed` backend, CUDA DLL setup, 12 s VAD cap, repeat collapse |
-| `src/ai/summarizer.py` | `claude-sdk` provider (`_call_claude`), `SUMMARY_EFFORT` |
-| `src/runtime/config.py` | `ASR_PROVIDER`, `SUMMARY_EFFORT`, `NO_OCR_COURSE_IDS`, `USE_WEBVPN`, Claude provider entry |
-| `src/api/webvpn.py`, `src/api/icourse.py` | `USE_WEBVPN=0` direct mode |
-| `src/pipeline/lecture_runner.py` | `summarize=False` (stage 1 only), `summarize_stored`, `NO_OCR_COURSE_IDS` prompt |
-| `src/data/schema.py`, `src/data/database.py` | `lectures.transcript_segments`, `get_pending_summaries` |
+| File | Hook |
+|------|------|
+| `src/ai/summarizer.py` | `claude_sdk.providers()` / `claude_sdk.client(p)` (2 lines + import) |
+| `src/ai/transcriber.py` | `provider=self._provider` kwargs (3), one attribute, `collapse_repeats` call |
+| `src/api/webvpn.py` | early return in `get_vpn_url`, `direct.install(self)` in `__init__` |
+| `src/api/icourse.py` | no cookies for the video host in direct mode (1 expression) |
 | `.gitignore`, `README.md`, `requirements-*.txt` | fork settings and docs |
+
+`src/runtime/config.py`, `src/data/*` and `src/pipeline/lecture_runner.py` are identical to upstream.
 
 ## Fork-only files
 
-`scripts/{run_lectures,lecture_batch,summarize_pending,summarize_local,export_slides,bench_asr}.py`,
-`requirements-cuda.txt`, `tests/`, this file.
+- `src/runtime/fork_config.py`: `ASR_PROVIDER`, `SUMMARY_EFFORT`, `NO_OCR_COURSE_IDS`, `USE_WEBVPN`, `USE_CLAUDE_SUBSCRIPTION`
+- `src/ai/claude_sdk.py`: Claude subscription backend behind the OpenAI client shape
+- `src/ai/asr_extras.py`, `src/ai/asr_text.py`: `ForkTranscriber` (CUDA, `firered-aed`), repeat collapse
+- `src/api/direct.py`: `USE_WEBVPN=0` mode
+- `src/data/fork_db.py`: `ForkDatabase` (segments table, pending-summary queue)
+- `src/pipeline/staged_runner.py`: `StagedLectureRunner` (stage 1 only, `summarize_stored`, no-OCR note)
+- `scripts/{run_lectures,lecture_batch,summarize_pending,summarize_local,export_slides,bench_asr}.py`,
+  `requirements-cuda.txt`, `tests/`, this file
+
+Upstream's own `main.py` still uses the plain classes, so the fork features apply to the fork scripts only.
