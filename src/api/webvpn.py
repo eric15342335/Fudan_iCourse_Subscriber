@@ -17,7 +17,7 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_v1_5
 import base64
 
-from src.runtime import config
+from src.runtime import config, fork_config
 
 
 def encrypt_host(hostname: str) -> str:
@@ -50,7 +50,7 @@ def get_vpn_url(url: str) -> str:
         ->
         https://webvpn.fudan.edu.cn/https/77726476706e69737468656265737421f9f44e.../courseapi/v3/...
     """
-    if not config.USE_WEBVPN:
+    if not fork_config.USE_WEBVPN:
         return url
     parsed = urlparse(url)
     protocol = parsed.scheme
@@ -127,7 +127,7 @@ class WebVPNSession:
 
         Returns True on success, raises on failure.
         """
-        if not config.USE_WEBVPN:  # direct mode: only the iCourse CAS login is needed
+        if not fork_config.USE_WEBVPN:  # direct mode: only the iCourse CAS login is needed
             self.logged_in = True
             return True
 
@@ -192,7 +192,7 @@ class WebVPNSession:
         # Pre-flight: probe the WebVPN portal.  A cold session redirects to
         # /login instantly (status 302); a hot session returns 200.  Fail
         # fast on cold — login_with_retry() in main.py will re-login.
-        if config.USE_WEBVPN:
+        if fork_config.USE_WEBVPN:
             warmup = self.session.get(
                 config.WEBVPN_BASE + "/", allow_redirects=False, timeout=5,
             )
@@ -200,7 +200,7 @@ class WebVPNSession:
                 raise RuntimeError("WebVPN session cold — re-login needed")
 
         idp_vpn_base = get_vpn_url(config.IDP_BASE)
-        origin = config.WEBVPN_BASE if config.USE_WEBVPN else config.IDP_BASE
+        origin = config.WEBVPN_BASE if fork_config.USE_WEBVPN else config.IDP_BASE
 
         # Step 1: Initiate CAS login via casapi.  Use allow_redirects=True
         # so requests follows the full redirect chain like a browser.

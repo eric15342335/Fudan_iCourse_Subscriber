@@ -1,7 +1,7 @@
 import importlib
 
 from src.ai import claude_sdk, summarizer
-from src.runtime import config, fork_config
+from src.runtime import fork_config
 
 
 def test_claude_provider_is_opt_in(monkeypatch):
@@ -32,9 +32,9 @@ def test_claude_effort_defaults_to_high():
 
 def test_no_ocr_course_ids_parsed(monkeypatch):
     monkeypatch.setenv("NO_OCR_COURSE_IDS", " 38985, 1 ,")
-    importlib.reload(config)
+    importlib.reload(fork_config)
     try:
-        assert {"38985", "1"} == config.NO_OCR_COURSE_IDS
+        assert {"38985", "1"} == fork_config.NO_OCR_COURSE_IDS
     finally:
         monkeypatch.delenv("NO_OCR_COURSE_IDS")
-        importlib.reload(config)
+        importlib.reload(fork_config)

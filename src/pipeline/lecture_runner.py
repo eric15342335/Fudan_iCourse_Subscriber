@@ -46,7 +46,7 @@ from typing import TYPE_CHECKING, Optional
 from src.ai import bucketer
 from src.pipeline.ppt_pipeline import PPTPipeline
 from src.ai.transcriber import IncompleteAudioError, NoAudioStreamError
-from src.runtime import config
+from src.runtime import config, fork_config
 
 if TYPE_CHECKING:
     from src.data.database import Database
@@ -377,7 +377,7 @@ class LectureRunner:
     def _summarize(self, sub_id: str, course_title: str, transcript: str,
                    transcript_segments: list[dict] | None) -> Optional[str]:
         try:
-            no_ocr = self._db.get_lecture(sub_id)["course_id"] in config.NO_OCR_COURSE_IDS
+            no_ocr = self._db.get_lecture(sub_id)["course_id"] in fork_config.NO_OCR_COURSE_IDS
             kept_pages = [] if no_ocr else self._db.get_done_ppt_pages(sub_id)
             prompt_text, mode = bucketer.assemble(
                 transcript, transcript_segments, kept_pages,

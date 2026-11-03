@@ -4,8 +4,6 @@ STUDENT_ID = os.environ.get("StuId", "")
 PASSWORD = os.environ.get("UISPsw", "")
 
 WEBVPN_BASE = "https://webvpn.fudan.edu.cn"
-# Set USE_WEBVPN=0 when the network can reach icourse/id.fudan.edu.cn directly.
-USE_WEBVPN = os.environ.get("USE_WEBVPN", "1").strip().lower() not in ("0", "false", "no")
 IDP_BASE = "https://id.fudan.edu.cn"
 ICOURSE_BASE = "https://icourse.fudan.edu.cn"
 
@@ -145,14 +143,10 @@ SILERO_VAD_PATH = os.environ.get("SILERO_VAD_PATH", "silero_vad.onnx")
 # ASR_MODEL_DIR must point at a matching sherpa-onnx model bundle:
 #   sensevoice — sherpa-onnx-sense-voice-* (multi-lang CTC, single model)
 #   firered    — sherpa-onnx-fire-red-asr2-ctc-* (CTC, single model.onnx)
-#   firered-aed — sherpa-onnx-fire-red-asr2-zh_en-* (AED, encoder/decoder)
 #   zipformer  — sherpa-onnx-zipformer-* (transducer, encoder/decoder/joiner)
 ASR_BACKEND = os.environ.get("ASR_BACKEND", "sensevoice").strip().lower()
 # Inference thread count.  4 fully saturates a 4-vCPU GitHub runner.
 ASR_NUM_THREADS = int(os.environ.get("ASR_NUM_THREADS", "4"))
-# onnxruntime execution provider: "cpu" (default) or "cuda" (needs the
-# sherpa-onnx CUDA wheel, see requirements-cuda.txt).
-ASR_PROVIDER = os.environ.get("ASR_PROVIDER", "cpu").strip().lower()
 
 # ── Scheduler concurrency knobs.  All overridable via env. ────────────────
 # image_pool: image downloads are tiny and IO-bound, 20 saturates bandwidth
@@ -176,12 +170,6 @@ USE_OFFICIAL_TRANSCRIPT = (
     os.environ.get("USE_OFFICIAL_TRANSCRIPT", "").strip().lower()
     in ("1", "true", "yes")
 )
-
-# Courses whose slide OCR is unusable (e.g. no readable slide recording): the
-# summary then relies on the transcript alone.  Comma-separated course IDs.
-NO_OCR_COURSE_IDS = {
-    c.strip() for c in os.environ.get("NO_OCR_COURSE_IDS", "").split(",") if c.strip()
-}
 
 # 监控的课程 ID 列表
 COURSE_IDS = [

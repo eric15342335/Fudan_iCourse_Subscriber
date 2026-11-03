@@ -28,7 +28,7 @@ from typing import Callable, Optional
 import numpy as np
 import sherpa_onnx
 
-from src.runtime import config
+from src.runtime import config, fork_config
 
 
 SAMPLE_RATE= 16000
@@ -214,7 +214,7 @@ class Transcriber:
                  model_dir: Optional[str] = None,
                  num_threads: Optional[int] = None,
                  provider: Optional[str] = None):
-        self._provider = (provider or config.ASR_PROVIDER).lower()
+        self._provider = (provider or fork_config.ASR_PROVIDER).lower()
         self._backend = (backend or config.ASR_BACKEND).lower()
         self._model_dir = model_dir or config.ASR_MODEL_DIR
         self._num_threads = num_threads or config.ASR_NUM_THREADS

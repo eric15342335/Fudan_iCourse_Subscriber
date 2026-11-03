@@ -12,7 +12,7 @@ import time
 import uuid
 from urllib.parse import urlparse
 
-from src.runtime import config
+from src.runtime import config, fork_config
 from src.api.webvpn import WebVPNSession, get_vpn_url
 
 
@@ -556,7 +556,7 @@ class ICourseClient:
         # Direct mode: the signed URL is enough; don't leak session cookies to the video host.
         cookies = "; ".join(
             f"{c.name}={c.value}" for c in self.vpn.session.cookies
-        ) if config.USE_WEBVPN else ""
+        ) if fork_config.USE_WEBVPN else ""
         headers = f"Cookie: {cookies}\r\nUser-Agent: {config.USER_AGENT}\r\n"
         return vpn_url, headers
 
