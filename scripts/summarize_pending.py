@@ -14,8 +14,8 @@ import argparse
 import os
 
 from src.ai.summarizer import Summarizer
-from src.data.database import Database
-from src.pipeline.lecture_runner import LectureRunner
+from src.data.fork_db import ForkDatabase
+from src.pipeline.staged_runner import StagedLectureRunner
 from src.runtime.reporter import Reporter
 
 
@@ -27,7 +27,7 @@ def main() -> None:
     ap.add_argument("--status", action="store_true", help="list the queue and exit")
     args = ap.parse_args()
 
-    db = Database()
+    db = ForkDatabase()
     pending = db.get_pending_summaries()
     if args.limit:
         pending = pending[:args.limit]
@@ -40,7 +40,7 @@ def main() -> None:
 
     os.makedirs(args.out_dir, exist_ok=True)
     # No client/scheduler/transcriber needed: summarize_stored only uses the DB.
-    runner = LectureRunner(None, db, None, None, Summarizer(), Reporter())  # type: ignore[arg-type]
+    runner = StagedLectureRunner(None, db, None, None, Summarizer(), Reporter())  # type: ignore[arg-type]
     failures = 0
     for lec in pending:
         try:

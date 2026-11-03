@@ -76,7 +76,6 @@ LECTURES_MIGRATION_COLUMNS: list[tuple[str, str]] = [
     ("error_count", "INTEGER DEFAULT 0"),
     ("error_stage", "TEXT"),
     ("summary_model", "TEXT"),
-    ("transcript_segments", "TEXT"),
 ]
 
 # Columns added to ``ppt_pages`` after its initial shape shipped.

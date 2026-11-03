@@ -25,9 +25,7 @@ log greps):
      collects + dedups + OCRs the next lecture's pages, overlapping with
      this lecture's LLM wait; leftovers are absorbed by the next
      ``submit``.
-  F  (skipped when ``summarize=False``: the lecture stays queued, see
-     ``Database.get_pending_summaries`` and ``summarize_stored``)
-     ``bucketer.assemble`` builds the prompt; ``Summarizer.summarize``
+  F  ``bucketer.assemble`` builds the prompt; ``Summarizer.summarize``
      calls the LLM round-robin until one succeeds.
   G  persist ``update_summary``, ``mark_processed``, ``clear_error``.
   H  ``audio_downloader.release`` kills ffmpeg + deletes scratch file.
@@ -39,14 +37,13 @@ threads pick up refreshed cookies through the shared ``ICourseClient``.
 
 from __future__ import annotations
 
-import json
 import time
 from typing import TYPE_CHECKING, Optional
 
 from src.ai import bucketer
 from src.pipeline.ppt_pipeline import PPTPipeline
 from src.ai.transcriber import IncompleteAudioError, NoAudioStreamError
-from src.runtime import config, fork_config
+from src.runtime import config
 
 if TYPE_CHECKING:
     from src.data.database import Database
@@ -63,17 +60,13 @@ class LectureRunner:
 
     def __init__(self, client: "ICourseClient", db: "Database",
                  scheduler: "Scheduler", transcriber: "Transcriber",
-                 summarizer: "Summarizer", reporter: "Reporter",
-                 summarize: bool = True):
+                 summarizer: "Summarizer", reporter: "Reporter"):
         self._client = client
         self._db = db
         self._scheduler = scheduler
         self._transcriber = transcriber
         self._summarizer = summarizer
         self._reporter = reporter
-        # False = stage 1 only (ASR + OCR); summaries are produced later by
-        # ``summarize_stored`` once the LLM quota is available again.
-        self._summarize_enabled = summarize
         self._ppt = PPTPipeline(db, scheduler, reporter)
         # Official-transcript segments fetched during the prefetch decision
         # (``_needs_audio``), keyed by sub_id, so ``_get_transcript`` doesn't
@@ -157,11 +150,6 @@ class LectureRunner:
             self._release_audio(sub_id)
             self._db.mark_processed(sub_id)
             self._db.clear_error(sub_id)
-            return None
-
-        if not self._summarize_enabled:
-            self._reporter.info("    Summary deferred (stage 1 only); queued.")
-            self._release_audio(sub_id)
             return None
 
         summary = self._summarize(
@@ -274,8 +262,7 @@ class LectureRunner:
                 f"({len(existing['transcript'])} chars), "
                 f"skipping transcription."
             )
-            stored = existing.get("transcript_segments")
-            return existing["transcript"], json.loads(stored) if stored else None
+            return existing["transcript"], None
 
         # Try official transcript before firing up ASR (config-gated).
         if config.USE_OFFICIAL_TRANSCRIPT:
@@ -294,7 +281,7 @@ class LectureRunner:
                         f"    Using official transcript "
                         f"({len(text)} chars, {len(official)} segments)"
                     )
-                    self._db.update_transcript(sub_id, text, official)
+                    self._db.update_transcript(sub_id, text)
                     # The audio may have been prefetched before we knew the
                     # official transcript was usable — stop that download
                     # now instead of letting it run until Phase H.
@@ -359,35 +346,16 @@ class LectureRunner:
             self._release_audio(sub_id)
             raise
 
-        self._db.update_transcript(sub_id, transcript, segments)
+        self._db.update_transcript(sub_id, transcript)
         return transcript, segments
-
-    def summarize_stored(self, sub_id: str, course_title: str) -> Optional[str]:
-        """Stage 2: summarize a lecture from its stored transcript and OCR."""
-        lec = self._db.get_lecture(sub_id)
-        stored = lec.get("transcript_segments")
-        summary = self._summarize(
-            sub_id, self._db.get_course_title(lec["course_id"]),
-            lec["transcript"], json.loads(stored) if stored else None,
-        )
-        self._db.mark_processed(sub_id)
-        self._db.clear_error(sub_id)
-        return summary
 
     def _summarize(self, sub_id: str, course_title: str, transcript: str,
                    transcript_segments: list[dict] | None) -> Optional[str]:
         try:
-            no_ocr = self._db.get_lecture(sub_id)["course_id"] in fork_config.NO_OCR_COURSE_IDS
-            kept_pages = [] if no_ocr else self._db.get_done_ppt_pages(sub_id)
+            kept_pages = self._db.get_done_ppt_pages(sub_id)
             prompt_text, mode = bucketer.assemble(
                 transcript, transcript_segments, kept_pages,
             )
-            if no_ocr:
-                prompt_text = (
-                    "【注意】本课程没有可用的PPT文字，以下只有录音识别文本，"
-                    "其中的同音字、专有名词和英文术语错误较多，请结合上下文尽力还原。\n\n"
-                    + prompt_text
-                )
             self._reporter.info(
                 f"    [Time] Generating summary at "
                 f"{time.strftime('%H:%M:%S')}"

@@ -1,6 +1,5 @@
 """SQLite storage for tracking courses and lectures."""
 
-import json
 import os
 import sqlite3
 import threading
@@ -215,33 +214,12 @@ class Database:
             rows = self.conn.execute(query, params).fetchall()
         return [dict(row) for row in rows]
 
-    def update_transcript(self, sub_id: str, transcript: str,
-                          segments: list[dict] | None = None):
-        """Save the transcript with its timestamped ``segments`` (JSON), so the
-        summary stage can run later with the same time-bucketed prompt."""
+    def update_transcript(self, sub_id: str, transcript: str):
         with self._lock, self.conn:
             self.conn.execute(
-                "UPDATE lectures SET transcript = ?, "
-                "transcript_segments = ? "
-                "WHERE sub_id = ?",
-                (transcript,
-                 json.dumps(segments, ensure_ascii=False) if segments else None,
-                 sub_id),
+                "UPDATE lectures SET transcript = ? WHERE sub_id = ?",
+                (transcript, sub_id),
             )
-
-    def get_pending_summaries(self) -> list[dict]:
-        """Lectures whose ASR/OCR stage is done but that have no summary yet."""
-        with self._lock:
-            rows = self.conn.execute(
-                """SELECT l.sub_id, l.course_id, l.sub_title, l.date,
-                          c.title AS course_title
-                   FROM lectures l
-                   JOIN courses c ON l.course_id = c.course_id
-                   WHERE TRIM(COALESCE(l.transcript, ''), ' ' || char(9, 10, 13)) != ''
-                     AND (l.summary IS NULL OR l.summary = '')
-                   ORDER BY l.date, l.sub_id""",
-            ).fetchall()
-        return [dict(row) for row in rows]
 
     def mark_processed(self, sub_id: str):
         with self._lock, self.conn:

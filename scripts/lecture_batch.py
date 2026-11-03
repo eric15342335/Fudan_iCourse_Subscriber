@@ -14,8 +14,8 @@ from src.ai.summarizer import Summarizer
 from src.ai.transcriber import Transcriber
 from src.api.icourse import ICourseClient
 from src.api.webvpn import WebVPNSession
-from src.data.database import Database
-from src.pipeline.lecture_runner import LectureRunner
+from src.data.fork_db import ForkDatabase
+from src.pipeline.staged_runner import StagedLectureRunner
 from src.runtime.reporter import Reporter
 from src.runtime.scheduler import Scheduler
 
@@ -39,7 +39,7 @@ def login() -> ICourseClient:
     raise RuntimeError("unreachable")
 
 
-def pick_lectures(client: ICourseClient, db: Database, specs: list[str]) -> list:
+def pick_lectures(client: ICourseClient, db: ForkDatabase, specs: list[str]) -> list:
     """Resolve ``COURSE_ID[:DATE]`` specs to playback lectures and register them."""
     picks, seen = [], set()
     for spec in specs:
@@ -64,13 +64,13 @@ def pick_lectures(client: ICourseClient, db: Database, specs: list[str]) -> list
     return picks
 
 
-def _has_summary(db: Database, lec: dict) -> bool:
+def _has_summary(db: ForkDatabase, lec: dict) -> bool:
     """True if the lecture already has a summary in the DB."""
     row = db.get_lecture(str(lec["sub_id"]))
     return bool(row and row.get("summary"))
 
 
-def run_picks(runner: LectureRunner, client: ICourseClient, picks: list,
+def run_picks(runner: StagedLectureRunner, client: ICourseClient, picks: list,
               out_dir: str) -> None:
     """Run each pick, writing any new summary to ``out_dir``."""
     for i, (cid, title, lec) in enumerate(picks):
@@ -101,7 +101,7 @@ def main(transcriber: Transcriber) -> None:
     args = ap.parse_args()
     os.makedirs(args.out_dir, exist_ok=True)
 
-    db, reporter = Database(), Reporter()
+    db, reporter = ForkDatabase(), Reporter()
     client = login()
     picks = pick_lectures(client, db, args.lectures)
     if args.list:
@@ -110,8 +110,9 @@ def main(transcriber: Transcriber) -> None:
         return
 
     scheduler = Scheduler(reporter=reporter)
-    runner = LectureRunner(client, db, scheduler, transcriber, Summarizer(), reporter,
-                           summarize=not args.no_summary)
+    runner = StagedLectureRunner(
+        client, db, scheduler, transcriber, Summarizer(), reporter,
+        summarize=not args.no_summary)
     try:
         if picks:
             runner.prefetch_first(picks[0][0], str(picks[0][2]["sub_id"]))

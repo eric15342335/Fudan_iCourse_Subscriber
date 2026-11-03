@@ -6,14 +6,14 @@ from src.runtime import fork_config
 
 def test_claude_provider_is_opt_in(monkeypatch):
     monkeypatch.setattr(fork_config, "USE_CLAUDE_SUBSCRIPTION", False)
-    assert claude_sdk.providers() == []
+    assert not claude_sdk.providers()
     monkeypatch.setattr(fork_config, "USE_CLAUDE_SUBSCRIPTION", True)
     assert claude_sdk.providers()[0]["name"] == "claude"
 
 
 def test_summarize_goes_through_claude(monkeypatch):
     monkeypatch.setattr(fork_config, "USE_CLAUDE_SUBSCRIPTION", True)
-    seen = {}
+    seen: dict = {}
 
     def fake_ask(model, system, prompt):
         seen.update(model=model, system=system, prompt=prompt)
