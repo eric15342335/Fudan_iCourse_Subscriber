@@ -6,6 +6,7 @@
 Writes ``<stem>.segments.json`` (ASR cache, reused on re-run so a failed LLM
 call doesn't redo hours of ASR) and ``<stem>.md`` (the summary).
 """
+# pylint: disable=wrong-import-position
 
 from __future__ import annotations
 

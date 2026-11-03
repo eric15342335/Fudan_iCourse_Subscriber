@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export a lecture's slide screenshots (the de-duplicated pages kept for OCR) as one PDF.
+"""Export a lecture's de-duplicated slide screenshots as one PDF.
 
     python scripts/export_slides.py SUB_ID [SUB_ID ...] [--out-dir temp/slides]
 
@@ -7,6 +7,7 @@ Reads the page list from the local DB (read-only), re-downloads the images from
 iCourse and writes ``<date> <course>.pdf``.  These are the platform's screen
 captures, not the original slide files.
 """
+# pylint: disable=wrong-import-position
 
 from __future__ import annotations
 
