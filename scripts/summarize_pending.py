@@ -4,8 +4,8 @@
     python -m scripts.summarize_pending --status           # show the queue
     python -m scripts.summarize_pending [--limit N]        # summarize the queue
 
-Needs no iCourse login and no ASR model.  Stops at the first failure (usually
-the Claude usage limit): the remaining lectures stay queued for the next run.
+Needs no iCourse login and no ASR model.  Stops after two failures in a row (usually
+the Claude usage limit); lectures not summarized stay queued for the next run.
 """
 
 from __future__ import annotations
@@ -41,13 +41,18 @@ def main() -> None:
     os.makedirs(args.out_dir, exist_ok=True)
     # No client/scheduler/transcriber needed: summarize_stored only uses the DB.
     runner = LectureRunner(None, db, None, None, Summarizer(), Reporter())  # type: ignore[arg-type]
+    failures = 0
     for lec in pending:
         try:
             summary = runner.summarize_stored(lec["sub_id"], lec["course_title"])
         except RuntimeError as e:
-            print(f"[STOP] {lec['date']} {lec['course_title']}: "
-                  f"{type(e).__name__}: {e}")
-            return
+            failures += 1
+            print(f"[FAIL] {lec['date']} {lec['course_title']}: {e}")
+            if failures >= 2:  # two in a row usually means the usage limit
+                print("[STOP] leaving the rest queued")
+                return
+            continue
+        failures = 0
         name = f"{lec['date']} {lec['course_title']}.md"
         path = os.path.join(args.out_dir, name)
         with open(path, "w", encoding="utf-8") as f:
