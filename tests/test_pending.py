@@ -20,8 +20,14 @@ def test_lecture_is_pending_until_summarized(tmp_path):
     assert db.get_pending_summaries() == []
 
 
-def test_update_transcript_without_segments_keeps_stored_ones(tmp_path):
+def test_new_transcript_drops_stale_segments(tmp_path):
     db = _db(tmp_path)
     db.update_transcript("s1", "a", [{"start_ms": 0, "end_ms": 1, "text": "a"}])
     db.update_transcript("s1", "b")
-    assert db.get_lecture("s1")["transcript_segments"]
+    assert db.get_lecture("s1")["transcript_segments"] is None
+
+
+def test_blank_transcript_is_not_pending(tmp_path):
+    db = _db(tmp_path)
+    db.update_transcript("s1", "  \n")
+    assert db.get_pending_summaries() == []

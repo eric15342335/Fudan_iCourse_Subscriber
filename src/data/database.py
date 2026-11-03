@@ -217,12 +217,12 @@ class Database:
 
     def update_transcript(self, sub_id: str, transcript: str,
                           segments: list[dict] | None = None):
-        """Save the transcript; ``segments`` (timestamped) are kept as JSON so
-        the summary stage can run later with the same time-bucketed prompt."""
+        """Save the transcript with its timestamped ``segments`` (JSON), so the
+        summary stage can run later with the same time-bucketed prompt."""
         with self._lock, self.conn:
             self.conn.execute(
                 "UPDATE lectures SET transcript = ?, "
-                "transcript_segments = COALESCE(?, transcript_segments) "
+                "transcript_segments = ? "
                 "WHERE sub_id = ?",
                 (transcript,
                  json.dumps(segments, ensure_ascii=False) if segments else None,
@@ -237,7 +237,7 @@ class Database:
                           c.title AS course_title
                    FROM lectures l
                    JOIN courses c ON l.course_id = c.course_id
-                   WHERE l.transcript IS NOT NULL AND l.transcript != ''
+                   WHERE TRIM(COALESCE(l.transcript, ''), ' ' || char(9, 10, 13)) != ''
                      AND (l.summary IS NULL OR l.summary = '')
                    ORDER BY l.date, l.sub_id""",
             ).fetchall()

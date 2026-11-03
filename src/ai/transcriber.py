@@ -324,7 +324,7 @@ class Transcriber:
 
     def _init_firered_aed(self):
         # FireRedASR2 AED (encoder + decoder).  Best reported Mandarin CER of
-        # the sherpa-onnx-packaged models; the 30 s VAD cap keeps segments
+        # the sherpa-onnx-packaged models; the 12 s VAD cap keeps segments
         # well under AED's 60 s hallucination limit.
         enc = self._resolve_first(self._model_dir, ["encoder.int8.onnx", "encoder.onnx"])
         dec = self._resolve_first(self._model_dir, ["decoder.int8.onnx", "decoder.onnx"])
