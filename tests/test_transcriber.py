@@ -1,3 +1,5 @@
+import pytest
+
 from src.ai.transcriber import Transcriber, _postprocess_segment
 from src.runtime import config
 
@@ -13,3 +15,10 @@ def test_provider_defaults_to_config_and_can_be_overridden(monkeypatch):
     monkeypatch.setattr(config, "ASR_PROVIDER", "cpu")
     assert Transcriber()._provider == "cpu"
     assert Transcriber(provider="CUDA")._provider == "cuda"
+
+
+def test_unknown_backend_is_rejected():
+    t = Transcriber()
+    t._backend = "nope"
+    with pytest.raises(ValueError, match="Unknown ASR_BACKEND"):
+        t.load()

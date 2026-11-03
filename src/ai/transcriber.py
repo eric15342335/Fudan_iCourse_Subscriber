@@ -239,19 +239,18 @@ class Transcriber:
         backend = self._backend
         if self._provider == "cuda":
             _add_cuda_dll_dirs()
-        if backend == "firered":
-            self._recognizer = self._init_firered()
-        elif backend == "sensevoice":
-            self._recognizer = self._init_sensevoice()
-        elif backend == "zipformer":
-            self._recognizer = self._init_zipformer()
-        elif backend == "firered-aed":
-            self._recognizer = self._init_firered_aed()
-        else:
+        loaders = {
+            "firered": self._init_firered,
+            "firered-aed": self._init_firered_aed,
+            "sensevoice": self._init_sensevoice,
+            "zipformer": self._init_zipformer,
+        }
+        if backend not in loaders:
             raise ValueError(
                 f"Unknown ASR_BACKEND={backend!r}; expected "
                 f"firered / firered-aed / sensevoice / zipformer"
             )
+        self._recognizer = loaders[backend]()
 
         vad_path = config.SILERO_VAD_PATH
         if not os.path.isfile(vad_path):
