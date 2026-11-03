@@ -1,3 +1,5 @@
+import importlib
+
 from src.ai import summarizer
 from src.runtime import config
 
@@ -16,21 +18,15 @@ def test_summarize_dispatches_to_claude(monkeypatch):
     assert s.summarize("t", "body") == ("ok:claude-opus-5-5", "claude/claude-opus-5-5")
 
 
-def test_claude_effort_defaults_to_max():
-    from src.runtime import config
-
-    assert config.SUMMARY_EFFORT == "max"
+def test_claude_effort_defaults_to_high():
+    assert config.SUMMARY_EFFORT == "high"
 
 
 def test_no_ocr_course_ids_parsed(monkeypatch):
-    import importlib
-
-    from src.runtime import config
-
     monkeypatch.setenv("NO_OCR_COURSE_IDS", " 38985, 1 ,")
     importlib.reload(config)
     try:
-        assert config.NO_OCR_COURSE_IDS == {"38985", "1"}
+        assert {"38985", "1"} == config.NO_OCR_COURSE_IDS
     finally:
         monkeypatch.delenv("NO_OCR_COURSE_IDS")
         importlib.reload(config)
