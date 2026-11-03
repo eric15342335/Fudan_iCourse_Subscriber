@@ -13,12 +13,12 @@ No semester crawl and no email; summaries are also written to ``--out-dir`` as
 
 import importlib
 
-from src.ai.transcriber import Transcriber
+from src.ai.asr_extras import ForkTranscriber
 
 
 def main() -> None:
     """Load the ASR model first, then run the pipeline."""
-    transcriber = Transcriber()
+    transcriber = ForkTranscriber()
     transcriber.load()
     # rapidocr ships its own onnxruntime.dll; if it loads before the sherpa-onnx CUDA
     # build, the CUDA provider fails and ASR silently falls back to CPU.

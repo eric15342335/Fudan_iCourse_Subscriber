@@ -13,7 +13,8 @@ import argparse
 import json
 import time
 
-from src.ai.transcriber import SAMPLE_RATE, Transcriber
+from src.ai.asr_extras import ForkTranscriber
+from src.ai.transcriber import SAMPLE_RATE
 
 BYTES_PER_SEC = SAMPLE_RATE * 4  # f32le mono
 
@@ -29,7 +30,7 @@ def main() -> None:
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
-    tr = Transcriber(provider=args.provider, num_threads=args.threads)
+    tr = ForkTranscriber(provider=args.provider, num_threads=args.threads)
     left = int(args.seconds * BYTES_PER_SEC)
     with open(args.raw, "rb") as f:
         f.seek(int(args.skip * SAMPLE_RATE) * 4)

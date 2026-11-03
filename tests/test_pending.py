@@ -1,6 +1,7 @@
 import inspect
 from types import SimpleNamespace
 
+from src.ai.transcriber import Transcriber
 from src.data.database import Database
 from src.data.fork_db import ForkDatabase
 from src.pipeline.lecture_runner import LectureRunner
@@ -117,3 +118,5 @@ def test_upstream_hooks_still_exist():
         "self", "existing", "course_id", "sub_id"]
     assert _params(Database.update_transcript) == ["self", "sub_id", "transcript"]
     assert _params(Database.get_done_ppt_pages) == ["self", "sub_id"]
+    assert _params(Transcriber._init) == ["self"]
+    assert _params(Transcriber._init_firered) == ["self"]

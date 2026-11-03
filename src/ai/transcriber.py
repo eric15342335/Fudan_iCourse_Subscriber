@@ -28,6 +28,7 @@ from typing import Callable, Optional
 import numpy as np
 import sherpa_onnx
 
+from src.ai.asr_text import collapse_repeats
 from src.runtime import config, fork_config
 
 
@@ -157,27 +158,10 @@ _ORPHAN_PUNCT_RE = re.compile(r"[\s.。,，;；!！?？]{2,}")
 _EDGE_PUNCT = " \t　.。,，;；!！?？"
 
 
-# Decoder loops / stutters: a CJK run of 1-8 chars repeated 3+ times collapses to one copy.
-# CJK-only so digits ("1000") and Latin text are never collapsed.
-_REPEAT_RE = re.compile(r"([一-鿿]{1,8}?)\1{2,}")
-
-
-def _add_cuda_dll_dirs() -> None:
-    """Make the pip-installed ``nvidia-*-cu12`` runtime DLLs findable (Windows)."""
-    import glob
-    import site
-    if not hasattr(os, "add_dll_directory"):
-        return
-    for root in site.getsitepackages():
-        for d in glob.glob(os.path.join(root, "nvidia", "*", "bin")):
-            os.add_dll_directory(d)
-            os.environ["PATH"] = d + os.pathsep + os.environ["PATH"]
-
-
 def _postprocess_segment(text: str) -> str:
     """Strip cross-backend ASR noise from one recognized segment."""
     text = _BRACKET_TOK_RE.sub("", text)
-    text = _REPEAT_RE.sub(r"\1", text)
+    text = collapse_repeats(text)
     # Japanese / Korean kana — always noise in Chinese lectures
     text = _JP_NOISE_RE.sub("", text)
     text = _KR_NOISE_RE.sub("", text)
@@ -212,9 +196,8 @@ class Transcriber:
 
     def __init__(self, backend: Optional[str] = None,
                  model_dir: Optional[str] = None,
-                 num_threads: Optional[int] = None,
-                 provider: Optional[str] = None):
-        self._provider = (provider or fork_config.ASR_PROVIDER).lower()
+                 num_threads: Optional[int] = None):
+        self._provider = fork_config.ASR_PROVIDER
         self._backend = (backend or config.ASR_BACKEND).lower()
         self._model_dir = model_dir or config.ASR_MODEL_DIR
         self._num_threads = num_threads or config.ASR_NUM_THREADS
@@ -228,45 +211,22 @@ class Transcriber:
 
     # ── Model lifecycle ─────────────────────────────────────────────────
 
-    def load(self) -> None:
-        """Load the model now (instead of on first use)."""
-        self._init()
-
-    def warm_up(self) -> None:
-        """Decode 5 s of noise so GPU kernel setup doesn't count in benchmarks."""
-        self._init()
-        stream = self._recognizer.create_stream()
-        noise = np.random.randn(SAMPLE_RATE * 5) * 0.01
-        stream.accept_waveform(SAMPLE_RATE, noise.astype("float32"))
-        self._recognizer.decode_stream(stream)
-
-    def consume_pcm_stream(self, *args, **kwargs):
-        """Public entry to ``_consume_pcm_stream`` for benchmarks."""
-        return self._consume_pcm_stream(*args, **kwargs)
-
-    @property
-    def settings(self) -> str:
-        return f"provider={self._provider} threads={self._num_threads}"
-
     def _init(self):
         if self._recognizer is not None:
             return
 
         backend = self._backend
-        if self._provider == "cuda":
-            _add_cuda_dll_dirs()
-        loaders = {
-            "firered": self._init_firered,
-            "firered-aed": self._init_firered_aed,
-            "sensevoice": self._init_sensevoice,
-            "zipformer": self._init_zipformer,
-        }
-        if backend not in loaders:
+        if backend == "firered":
+            self._recognizer = self._init_firered()
+        elif backend == "sensevoice":
+            self._recognizer = self._init_sensevoice()
+        elif backend == "zipformer":
+            self._recognizer = self._init_zipformer()
+        else:
             raise ValueError(
                 f"Unknown ASR_BACKEND={backend!r}; expected "
-                f"firered / firered-aed / sensevoice / zipformer"
+                f"firered / sensevoice / zipformer"
             )
-        self._recognizer = loaders[backend]()
 
         vad_path = config.SILERO_VAD_PATH
         if not os.path.isfile(vad_path):
@@ -287,14 +247,11 @@ class Transcriber:
         #                                       up-to-30s windows; matches
         #                                       its receptive field
         self._vad_config.silero_vad.min_silence_duration = 0.8
-        # AED loops ("嗯嗯嗯…") on long chunks; 12 s was clean in testing.
-        self._vad_config.silero_vad.max_speech_duration = (
-            12.0 if backend == "firered-aed" else 30.0
-        )
+        self._vad_config.silero_vad.max_speech_duration = 30.0
         self._vad_config.sample_rate = SAMPLE_RATE
         self._reset_vad()
         print(f"[Transcriber] Model loaded (backend={backend}, "
-              f"threads={self._num_threads}, provider={self._provider}).")
+              f"threads={self._num_threads}).")
 
     def _resolve_first(self, dir_: str, candidates: list[str]) -> str:
         """Return the first existing path in dir_ matching any candidate name."""
@@ -320,22 +277,6 @@ class Transcriber:
             num_threads=self._num_threads,
             provider=self._provider,
             debug=False,
-        )
-
-    def _init_firered_aed(self):
-        # FireRedASR2 AED (encoder + decoder).  Best reported Mandarin CER of
-        # the sherpa-onnx-packaged models; the 12 s VAD cap keeps segments
-        # well under AED's 60 s hallucination limit.
-        enc = self._resolve_first(self._model_dir, ["encoder.int8.onnx", "encoder.onnx"])
-        dec = self._resolve_first(self._model_dir, ["decoder.int8.onnx", "decoder.onnx"])
-        tokens_path = os.path.join(self._model_dir, "tokens.txt")
-        if not os.path.isfile(tokens_path):
-            raise FileNotFoundError(f"tokens.txt missing in {self._model_dir}")
-        print(f"[Transcriber] Loading FireRedASR2 AED from {self._model_dir}...")
-        return sherpa_onnx.OfflineRecognizer.from_fire_red_asr(
-            encoder=enc, decoder=dec, tokens=tokens_path,
-            num_threads=self._num_threads, debug=False,
-            provider=self._provider,
         )
 
     def _init_sensevoice(self):

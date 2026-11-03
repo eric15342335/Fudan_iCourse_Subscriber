@@ -14,8 +14,8 @@ import json
 import os
 
 from src.ai import bucketer
+from src.ai.asr_extras import ForkTranscriber
 from src.ai.summarizer import Summarizer
-from src.ai.transcriber import Transcriber
 
 
 def main() -> None:
@@ -34,7 +34,7 @@ def main() -> None:
         with open(cache, encoding="utf-8") as f:
             segments = json.load(f)
     else:
-        _, segments = Transcriber().transcribe_video(args.video)
+        _, segments = ForkTranscriber().transcribe_video(args.video)
         with open(cache, "w", encoding="utf-8") as f:
             json.dump(segments, f, ensure_ascii=False)
 

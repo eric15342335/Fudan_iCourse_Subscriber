@@ -10,8 +10,8 @@ import traceback
 import requests
 
 from main import _check_session
+from src.ai.asr_extras import ForkTranscriber
 from src.ai.summarizer import Summarizer
-from src.ai.transcriber import Transcriber
 from src.api.icourse import ICourseClient
 from src.api.webvpn import WebVPNSession
 from src.data.fork_db import ForkDatabase
@@ -90,7 +90,7 @@ def run_picks(runner: StagedLectureRunner, client: ICourseClient, picks: list,
             print(f"[OK] {path}")
 
 
-def main(transcriber: Transcriber) -> None:
+def main(transcriber: ForkTranscriber) -> None:
     """Parse arguments and run (or list) the picks."""
     ap = argparse.ArgumentParser()
     ap.add_argument("lectures", nargs="+", metavar="COURSE_ID[:YYYY-MM-DD]")
