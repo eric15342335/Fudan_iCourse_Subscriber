@@ -1,21 +1,17 @@
 #!/usr/bin/env python3
 """Transcribe + summarize local lecture recordings (no iCourse login needed).
 
-    python scripts/summarize_local.py "<video>" [--title T] [--out-dir temp/summaries]
+    python -m scripts.summarize_local "<video>" [--title T] [--out-dir temp/summaries]
 
 Writes ``<stem>.segments.json`` (ASR cache, reused on re-run so a failed LLM
 call doesn't redo hours of ASR) and ``<stem>.md`` (the summary).
 """
-# pylint: disable=wrong-import-position
 
 from __future__ import annotations
 
 import argparse
 import json
 import os
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.ai import bucketer
 from src.ai.summarizer import Summarizer
@@ -23,6 +19,7 @@ from src.ai.transcriber import Transcriber
 
 
 def main() -> None:
+    """Command-line entry point."""
     ap = argparse.ArgumentParser()
     ap.add_argument("video")
     ap.add_argument("--title", help="course title for the prompt (default: file name)")

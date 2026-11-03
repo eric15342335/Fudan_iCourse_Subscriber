@@ -1,29 +1,26 @@
 #!/usr/bin/env python3
 """Stage 2: summarize lectures whose ASR + OCR are already stored in the DB.
 
-    python scripts/summarize_pending.py --status           # show the queue
-    python scripts/summarize_pending.py [--limit N]        # summarize the queue
+    python -m scripts.summarize_pending --status           # show the queue
+    python -m scripts.summarize_pending [--limit N]        # summarize the queue
 
 Needs no iCourse login and no ASR model.  Stops at the first failure (usually
 the Claude usage limit): the remaining lectures stay queued for the next run.
 """
-# pylint: disable=wrong-import-position
 
 from __future__ import annotations
 
 import argparse
 import os
-import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from src.ai.summarizer import Summarizer  # noqa: E402
-from src.data.database import Database  # noqa: E402
-from src.pipeline.lecture_runner import LectureRunner  # noqa: E402
-from src.runtime.reporter import Reporter  # noqa: E402
+from src.ai.summarizer import Summarizer
+from src.data.database import Database
+from src.pipeline.lecture_runner import LectureRunner
+from src.runtime.reporter import Reporter
 
 
 def main() -> None:
+    """Command-line entry point."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--out-dir", default=os.path.join("temp", "summaries"))
     ap.add_argument("--limit", type=int, default=0, help="at most N lectures")
@@ -47,7 +44,7 @@ def main() -> None:
     for lec in pending:
         try:
             summary = runner.summarize_stored(lec["sub_id"], lec["course_title"])
-        except Exception as e:  # noqa: BLE001 pylint: disable=broad-exception-caught
+        except RuntimeError as e:
             print(f"[STOP] {lec['date']} {lec['course_title']}: "
                   f"{type(e).__name__}: {e}")
             return

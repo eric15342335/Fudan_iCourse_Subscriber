@@ -232,6 +232,22 @@ class Transcriber:
         """Load the model now (instead of on first use)."""
         self._init()
 
+    def warm_up(self) -> None:
+        """Decode 5 s of noise so GPU kernel setup doesn't count in benchmarks."""
+        self._init()
+        stream = self._recognizer.create_stream()
+        noise = np.random.randn(SAMPLE_RATE * 5) * 0.01
+        stream.accept_waveform(SAMPLE_RATE, noise.astype("float32"))
+        self._recognizer.decode_stream(stream)
+
+    def consume_pcm_stream(self, *args, **kwargs):
+        """Public entry to ``_consume_pcm_stream`` for benchmarks."""
+        return self._consume_pcm_stream(*args, **kwargs)
+
+    @property
+    def settings(self) -> str:
+        return f"provider={self._provider} threads={self._num_threads}"
+
     def _init(self):
         if self._recognizer is not None:
             return

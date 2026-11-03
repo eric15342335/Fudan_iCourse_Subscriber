@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Export a lecture's de-duplicated slide screenshots as one PDF.
 
-    python scripts/export_slides.py SUB_ID [SUB_ID ...] [--out-dir temp/slides]
+    python -m scripts.export_slides SUB_ID [SUB_ID ...] [--out-dir temp/slides]
 
 Reads the page list from the local DB (read-only), re-downloads the images from
 iCourse and writes ``<date> <course>.pdf``.  These are the platform's screen
 captures, not the original slide files.
 """
-# pylint: disable=wrong-import-position
 
 from __future__ import annotations
 
@@ -15,10 +14,7 @@ import argparse
 import io
 import os
 import sqlite3
-import sys
 from concurrent.futures import ThreadPoolExecutor
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from PIL import Image
 
@@ -28,6 +24,7 @@ from src.runtime import config
 
 
 def main() -> None:
+    """Command-line entry point."""
     ap = argparse.ArgumentParser()
     ap.add_argument("sub_ids", nargs="+")
     ap.add_argument("--out-dir", default=os.path.join("temp", "slides"))
