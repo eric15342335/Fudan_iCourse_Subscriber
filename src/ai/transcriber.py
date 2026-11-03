@@ -157,7 +157,7 @@ _ORPHAN_PUNCT_RE = re.compile(r"[\s.。,，;；!！?？]{2,}")
 _EDGE_PUNCT = " \t　.。,，;；!！?？"
 
 
-# Decoder loops / stutters: a CJK run of 1-8 chars repeated 3+ times → once.
+# Decoder loops / stutters: a CJK run of 1-8 chars repeated 3+ times collapses to one copy.
 # CJK-only so digits ("1000") and Latin text are never collapsed.
 _REPEAT_RE = re.compile(r"([一-鿿]{1,8}?)\1{2,}")
 
