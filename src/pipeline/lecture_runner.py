@@ -25,7 +25,9 @@ log greps):
      collects + dedups + OCRs the next lecture's pages, overlapping with
      this lecture's LLM wait; leftovers are absorbed by the next
      ``submit``.
-  F  ``bucketer.assemble`` builds the prompt; ``Summarizer.summarize``
+  F  (skipped when ``summarize=False``: the lecture stays queued, see
+     ``Database.get_pending_summaries`` and ``summarize_stored``)
+     ``bucketer.assemble`` builds the prompt; ``Summarizer.summarize``
      calls the LLM round-robin until one succeeds.
   G  persist ``update_summary``, ``mark_processed``, ``clear_error``.
   H  ``audio_downloader.release`` kills ffmpeg + deletes scratch file.
@@ -37,6 +39,7 @@ threads pick up refreshed cookies through the shared ``ICourseClient``.
 
 from __future__ import annotations
 
+import json
 import time
 from typing import TYPE_CHECKING, Optional
 
@@ -60,13 +63,17 @@ class LectureRunner:
 
     def __init__(self, client: "ICourseClient", db: "Database",
                  scheduler: "Scheduler", transcriber: "Transcriber",
-                 summarizer: "Summarizer", reporter: "Reporter"):
+                 summarizer: "Summarizer", reporter: "Reporter",
+                 summarize: bool = True):
         self._client = client
         self._db = db
         self._scheduler = scheduler
         self._transcriber = transcriber
         self._summarizer = summarizer
         self._reporter = reporter
+        # False = stage 1 only (ASR + OCR); summaries are produced later by
+        # ``summarize_stored`` once the LLM quota is available again.
+        self._summarize_enabled = summarize
         self._ppt = PPTPipeline(db, scheduler, reporter)
         # Official-transcript segments fetched during the prefetch decision
         # (``_needs_audio``), keyed by sub_id, so ``_get_transcript`` doesn't
@@ -150,6 +157,11 @@ class LectureRunner:
             self._release_audio(sub_id)
             self._db.mark_processed(sub_id)
             self._db.clear_error(sub_id)
+            return None
+
+        if not self._summarize_enabled:
+            self._reporter.info("    Summary deferred (stage 1 only); queued.")
+            self._release_audio(sub_id)
             return None
 
         summary = self._summarize(
@@ -262,7 +274,8 @@ class LectureRunner:
                 f"({len(existing['transcript'])} chars), "
                 f"skipping transcription."
             )
-            return existing["transcript"], None
+            stored = existing.get("transcript_segments")
+            return existing["transcript"], json.loads(stored) if stored else None
 
         # Try official transcript before firing up ASR (config-gated).
         if config.USE_OFFICIAL_TRANSCRIPT:
@@ -281,7 +294,7 @@ class LectureRunner:
                         f"    Using official transcript "
                         f"({len(text)} chars, {len(official)} segments)"
                     )
-                    self._db.update_transcript(sub_id, text)
+                    self._db.update_transcript(sub_id, text, official)
                     # The audio may have been prefetched before we knew the
                     # official transcript was usable — stop that download
                     # now instead of letting it run until Phase H.
@@ -346,8 +359,20 @@ class LectureRunner:
             self._release_audio(sub_id)
             raise
 
-        self._db.update_transcript(sub_id, transcript)
+        self._db.update_transcript(sub_id, transcript, segments)
         return transcript, segments
+
+    def summarize_stored(self, sub_id: str, course_title: str) -> Optional[str]:
+        """Stage 2: summarize a lecture from its stored transcript and OCR."""
+        lec = self._db.get_lecture(sub_id)
+        stored = lec.get("transcript_segments")
+        summary = self._summarize(
+            sub_id, self._db.get_course_title(lec["course_id"]),
+            lec["transcript"], json.loads(stored) if stored else None,
+        )
+        self._db.mark_processed(sub_id)
+        self._db.clear_error(sub_id)
+        return summary
 
     def _summarize(self, sub_id: str, course_title: str, transcript: str,
                    transcript_segments: list[dict] | None) -> Optional[str]:

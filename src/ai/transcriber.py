@@ -228,6 +228,10 @@ class Transcriber:
 
     # ── Model lifecycle ─────────────────────────────────────────────────
 
+    def load(self) -> None:
+        """Load the model now (instead of on first use)."""
+        self._init()
+
     def _init(self):
         if self._recognizer is not None:
             return
