@@ -1,25 +1,33 @@
 import importlib
 
-from src.ai import summarizer
-from src.runtime import config
+from src.ai import claude_sdk, summarizer
+from src.runtime import config, fork_config
 
 
 def test_claude_provider_is_opt_in(monkeypatch):
-    monkeypatch.delenv("USE_CLAUDE_SUBSCRIPTION", raising=False)
-    assert "claude" not in [p["name"] for p in config.resolve_model_providers()]
-    monkeypatch.setenv("USE_CLAUDE_SUBSCRIPTION", "1")
-    assert config.resolve_model_providers()[0]["name"] == "claude"
+    monkeypatch.setattr(fork_config, "USE_CLAUDE_SUBSCRIPTION", False)
+    assert claude_sdk.providers() == []
+    monkeypatch.setattr(fork_config, "USE_CLAUDE_SUBSCRIPTION", True)
+    assert claude_sdk.providers()[0]["name"] == "claude"
 
 
-def test_summarize_dispatches_to_claude(monkeypatch):
-    monkeypatch.setenv("USE_CLAUDE_SUBSCRIPTION", "1")
-    s = summarizer.Summarizer()
-    monkeypatch.setattr(s, "_call_claude", lambda model, title, content: f"ok:{model}")
-    assert s.summarize("t", "body") == ("ok:claude-opus-5-5", "claude/claude-opus-5-5")
+def test_summarize_goes_through_claude(monkeypatch):
+    monkeypatch.setattr(fork_config, "USE_CLAUDE_SUBSCRIPTION", True)
+    seen = {}
+
+    def fake_ask(model, system, prompt):
+        seen.update(model=model, system=system, prompt=prompt)
+        return "ok"
+
+    monkeypatch.setattr(claude_sdk, "_ask", fake_ask)
+    result = summarizer.Summarizer().summarize("t", "body")
+    assert result == ("ok", "claude/claude-opus-5-5")
+    assert seen["system"] == summarizer.SYSTEM_PROMPT
+    assert "《t》" in seen["prompt"]
 
 
 def test_claude_effort_defaults_to_high():
-    assert config.SUMMARY_EFFORT == "high"
+    assert fork_config.SUMMARY_EFFORT == "high"
 
 
 def test_no_ocr_course_ids_parsed(monkeypatch):

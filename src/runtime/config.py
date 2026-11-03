@@ -27,14 +27,6 @@ USER_AGENT = (
 # 同名 provider 多次出现 → resolve_model_providers() 把它们的 models 合并到首次出
 # 现的那条；这避免 Summarizer 内部按 name 索引 client 字典时被后写覆盖。
 MODEL_PROVIDERS: list[dict] = [
-    # Claude via the Agent SDK, billed to your Claude Pro/Max subscription
-    # (`claude login`, or CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`).
-    # Enable with USE_CLAUDE_SUBSCRIPTION=1; personal use only.
-    {
-        "name": "claude",
-        "kind": "claude-sdk",
-        "models": ["claude-opus-5-5", "claude-sonnet-5-5"],
-    },
     {
         "name": "modelscope",
         "api_key_env": "DASHSCOPE_API_KEY",
@@ -93,11 +85,6 @@ def resolve_model_providers() -> list[dict]:
     resolved: list[dict] = []
     by_name: dict[str, dict] = {}
     for p in MODEL_PROVIDERS:
-        if p.get("kind") == "claude-sdk":
-            # Uses the local Claude subscription login — opt-in via env.
-            if os.environ.get("USE_CLAUDE_SUBSCRIPTION", "").strip().lower() in ("1", "true", "yes"):
-                resolved.append({**p, "models": list(p["models"])})
-            continue
         api_key = os.environ.get(p["api_key_env"], "").strip()
         if not api_key:
             continue
@@ -183,9 +170,6 @@ OCR_MAX_TARGET = int(os.environ.get("OCR_MAX_TARGET", "2"))
 VIDEO_DOWNLOAD_CONCURRENCY = int(
     os.environ.get("VIDEO_DOWNLOAD_CONCURRENCY", "2")
 )
-
-# Claude reasoning effort for summaries: low / medium / high / xhigh / max.
-SUMMARY_EFFORT = os.environ.get("SUMMARY_EFFORT", "high").strip().lower()
 
 # 是否优先使用 iCourse 官方字幕（跳过 ASR 转录）。默认关闭。
 USE_OFFICIAL_TRANSCRIPT = (

@@ -4,6 +4,8 @@ import time
 
 from openai import OpenAI
 
+from src.ai import claude_sdk
+
 from src.runtime import config
 
 SYSTEM_PROMPT= r"""你是一个专业的课程助教。你的任务是根据用户提供的课程录音文本和ppt文字ocr部分，生成用于学生自学和期末复习的详细笔记。
@@ -77,49 +79,16 @@ class Summarizer:
     """
 
     def __init__(self):
-        self.providers = config.resolve_model_providers()
+        self.providers = claude_sdk.providers() + config.resolve_model_providers()
         if not self.providers:
             raise ValueError(
                 "No model provider available. "
                 "Set at least one provider's API key (e.g. DASHSCOPE_API_KEY)."
             )
         self._clients = {
-            p["name"]: OpenAI(api_key=p["api_key"], base_url=p["base_url"])
-            for p in self.providers if p.get("kind") != "claude-sdk"
+            p["name"]: claude_sdk.client(p) or OpenAI(api_key=p["api_key"], base_url=p["base_url"])
+            for p in self.providers
         }
-
-    @staticmethod
-    def _user_prompt(title: str, content: str) -> str:
-        # 注意：这里的 1:7 与 system prompt 中声称的 1:8 不一致是有意为之
-        # （给模型一个略偏长的信号修正其实际输出偏短的倾向），勿"修复"。
-        return (f"以下是课程《{title}》的录音文本，根据长度，你应该输出的字符数大约为"
-                f"{len(content) // 7}字，请开始总结：\n\n{content}")
-
-    def _call_claude(self, model: str, title: str, content: str) -> str:
-        """One-shot, tool-less Claude call through the Agent SDK (subscription auth)."""
-        import asyncio
-        from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
-
-        opts = ClaudeAgentOptions(
-            model=model, system_prompt=SYSTEM_PROMPT, tools=[], max_turns=1,
-            effort=config.SUMMARY_EFFORT,  # type: ignore[arg-type]
-            setting_sources=[],  # don't load CLAUDE.md / hooks from cwd
-            env={"ANTHROPIC_API_KEY": ""},  # force subscription, not API billing
-        )
-
-        async def run() -> str:
-            async for msg in query(prompt=self._user_prompt(title, content), options=opts):
-                if isinstance(msg, ResultMessage):
-                    if msg.is_error or not msg.result:
-                        raise RuntimeError(f"Claude SDK error: {msg.subtype}: {msg.result}")
-                    return msg.result
-            raise RuntimeError("Claude SDK returned no result")
-
-        t0 = time.time()
-        result = asyncio.run(run())
-        print(f"[Summarizer] Done ({model}): {len(content)} chars input → "
-              f"{len(result)} chars output in {time.time() - t0:.0f}s")
-        return result
 
     def _call_llm(self, client: OpenAI, model: str,
                   title: str, content: str) -> str:
@@ -128,7 +97,12 @@ class Summarizer:
             model=model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": self._user_prompt(title, content)},
+                {
+                    "role": "user",
+                    # 注意：这里的 1:7 与 system prompt 中声称的 1:8 不一致是有意为之
+                    # （给模型一个略偏长的信号修正其实际输出偏短的倾向），勿"修复"。
+                    "content": f"以下是课程《{title}》的录音文本，根据长度，你应该输出的字符数大约为{len(content) // 7}字，请开始总结：\n\n{content}",
+                },
             ],
             # temperature=0.3,
             timeout=180,
@@ -171,14 +145,11 @@ class Summarizer:
 
         errors = []
         for provider in self.providers:
-            client = self._clients.get(provider["name"])
+            client = self._clients[provider["name"]]
             for model in provider["models"]:
                 model_id = f"{provider['name']}/{model}"
                 try:
-                    if provider.get("kind") == "claude-sdk":
-                        result = self._call_claude(model, title, content)
-                    else:
-                        result = self._call_llm(client, model, title, content)
+                    result = self._call_llm(client, model, title, content)
                     return (result, model_id)
                 except Exception as e:
                     print(f"[Summarizer] {model_id} failed: "
