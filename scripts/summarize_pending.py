@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""Stage 2: summarize lectures whose ASR + OCR are already stored in the DB.
+
+    python scripts/summarize_pending.py --status           # show the queue
+    python scripts/summarize_pending.py [--limit N]        # summarize the queue
+
+Needs no iCourse login and no ASR model.  Stops at the first failure (usually
+the Claude usage limit): the remaining lectures stay queued for the next run.
+"""
+# pylint: disable=wrong-import-position
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from src.ai.summarizer import Summarizer  # noqa: E402
+from src.data.database import Database  # noqa: E402
+from src.pipeline.lecture_runner import LectureRunner  # noqa: E402
+from src.runtime.reporter import Reporter  # noqa: E402
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out-dir", default=os.path.join("temp", "summaries"))
+    ap.add_argument("--limit", type=int, default=0, help="at most N lectures")
+    ap.add_argument("--status", action="store_true", help="list the queue and exit")
+    args = ap.parse_args()
+
+    db = Database()
+    pending = db.get_pending_summaries()
+    if args.limit:
+        pending = pending[:args.limit]
+    for lec in pending:
+        print(f"{lec['course_id']}:{lec['date']}  {lec['course_title']}  "
+              f"sub_id={lec['sub_id']}")
+    print(f"{len(pending)} lecture(s) waiting for a summary")
+    if args.status or not pending:
+        return
+
+    os.makedirs(args.out_dir, exist_ok=True)
+    # No client/scheduler/transcriber needed: summarize_stored only uses the DB.
+    runner = LectureRunner(None, db, None, None, Summarizer(), Reporter())  # type: ignore[arg-type]
+    for lec in pending:
+        try:
+            summary = runner.summarize_stored(lec["sub_id"], lec["course_title"])
+        except Exception as e:  # noqa: BLE001 pylint: disable=broad-exception-caught
+            print(f"[STOP] {lec['date']} {lec['course_title']}: "
+                  f"{type(e).__name__}: {e}")
+            return
+        name = f"{lec['date']} {lec['course_title']}.md"
+        path = os.path.join(args.out_dir, name)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write((summary or "") + "\n")
+        print(f"[OK] {path}")
+
+
+if __name__ == "__main__":
+    main()

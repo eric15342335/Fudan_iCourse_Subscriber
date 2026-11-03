@@ -244,7 +244,8 @@ Schema 迁移：新增列时，旧的 shard 与新的 schema 之间存在列数�
 - **GPU (CUDA) 转写**：另建一个环境 `uv pip install -r requirements-cuda.txt`，设置 `ASR_PROVIDER=cuda`，
   并改用**全精度**模型（int8 在 CUDA 上不加速）。RTX 5060 实测约 9× 实时（int8 CPU 约 3×），
   可用 `scripts/bench_asr.py data/audio/<sub_id>.raw --provider cuda` 自行测速。
-- **总结推理强度**：`SUMMARY_EFFORT`（默认 `max`，可选 low/medium/high/xhigh/max）。
+- **总结推理强度**：`SUMMARY_EFFORT`（默认 `high`，可选 low/medium/high/xhigh/max）。
 - **用 Claude 订阅做总结**：`pip install -r requirements-claude.txt`，先 `claude login`，
   再设置 `USE_CLAUDE_SUBSCRIPTION=1`（仅限个人使用；会忽略 `ANTHROPIC_API_KEY`）。
+- **两阶段（先转写、后总结）**：额度不够时，`python scripts/run_lectures.py --no-summary <课程ID或课程ID:日期>` 只做转写+OCR，转写与时间轴存入数据库（`lectures.transcript` / `transcript_segments`）；额度恢复后 `python scripts/summarize_pending.py` 补做总结（`--status` 查看队列，遇到额度错误即停止，其余保持排队）。不带日期的课程ID表示该课全部尚无总结的回放。
 - **处理本地录像**：`python scripts/summarize_local.py "<视频>" --title <课程名>`，结果写入 `temp/summaries/`。
