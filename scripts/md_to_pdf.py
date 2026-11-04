@@ -40,7 +40,13 @@ PAGE = """<!doctype html><html lang="zh"><meta charset="utf-8"><title>{title}</t
 <script src="{prism}/components/prism-core.min.js"></script>
 <script src="{prism}/plugins/autoloader/prism-autoloader.min.js"></script>
 <style>
-@page {{ size: A4; margin: 18mm 16mm; }}
+@page {{ size: A4; margin: 0.72in 1.224in 0.70in 1.234in; }}
+html {{ zoom: 0.7; }}
+.stackedit__html > :first-child {{ margin-top: 0; }}
+li {{ padding-bottom: 1px; }}
+h1:has(+ pre), h2:has(+ pre), h3:has(+ pre), h4:has(+ pre) {{ break-after: avoid; }}
+pre, pre code {{ white-space: pre-wrap !important; overflow: visible !important;
+  overflow-wrap: anywhere; }}
 .stackedit {{ font-family: Lato, "Helvetica Neue", Helvetica, "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }}
 </style>
 <body class="stackedit stackedit--pdf"><div class="stackedit__html">{body}</div>
