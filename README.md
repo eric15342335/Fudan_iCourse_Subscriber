@@ -247,5 +247,6 @@ Schema 迁移：新增列时，旧的 shard 与新的 schema 之间存在列数�
 - **总结推理强度**：`SUMMARY_EFFORT`（默认 `high`，可选 low/medium/high/xhigh/max）。
 - **用 Claude 订阅做总结**：`pip install -r requirements-claude.txt`，先 `claude login`，
   再设置 `USE_CLAUDE_SUBSCRIPTION=1`（仅限个人使用；会忽略 `ANTHROPIC_API_KEY`）。
+- **总结转 PDF**：`pip install -r requirements-pdf.txt`，再 `python -m scripts.md_to_pdf <文件或文件夹> --out-dir temp/pdf`（用本机 Chrome/Edge 排版，字体、代码高亮、公式需联网）。
 - **两阶段（先转写、后总结）**：额度不够时，`python -m scripts.run_lectures --no-summary <课程ID或课程ID:日期>` 只做转写+OCR，转写与时间轴存入数据库（`lectures.transcript` / `transcript_segments`）；额度恢复后 `python -m scripts.summarize_pending` 补做总结（`--status` 查看队列，连续两次失败（多半是额度用完）即停止，其余保持排队）。不带日期的课程ID表示该课全部尚无总结的回放。
 - **处理本地录像**：`python -m scripts.summarize_local "<视频>" --title <课程名>`，结果写入 `temp/summaries/`。

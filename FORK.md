@@ -32,7 +32,7 @@ python -m pytest tests   # includes a guard test for every upstream method the f
 - `src/api/direct.py`: `USE_WEBVPN=0` mode
 - `src/data/fork_db.py`: `ForkDatabase` (segments table, pending-summary queue)
 - `src/pipeline/staged_runner.py`: `StagedLectureRunner` (stage 1 only, `summarize_stored`, no-OCR note)
-- `scripts/{run_lectures,lecture_batch,summarize_pending,summarize_local,export_slides,bench_asr}.py`,
-  `requirements-cuda.txt`, `tests/`, this file
+- `scripts/{run_lectures,lecture_batch,summarize_pending,summarize_local,export_slides,bench_asr,md_to_pdf}.py`,
+  `requirements-{cuda,pdf}.txt`, `tests/`, this file
 
 Upstream's own `main.py` still uses the plain classes, so the fork features apply to the fork scripts only.
