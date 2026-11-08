@@ -14,6 +14,7 @@ and no code colours.
 from __future__ import annotations
 
 import argparse
+import html
 import os
 import re
 import shutil
@@ -78,10 +79,28 @@ def fix_bold(text: str) -> str:
                    for i, p in enumerate(parts))
 
 
+MATH = re.compile(r"\$\$.+?\$\$|\$(?=\S)[^$\n]*?(?<=\S)\$", re.DOTALL)
+
+
+def protect_math(text: str) -> tuple[str, list[str]]:
+    """Swap formulas for plain tokens so Markdown cannot touch ``_``, ``\\`` or ``*`` in them."""
+    found: list[str] = []
+
+    def stash(m: re.Match[str]) -> str:
+        found.append(m.group(0))
+        return f"MATHTOKEN{len(found) - 1}END"
+
+    parts = CODE.split(text)
+    return "".join(p if i % 2 else MATH.sub(stash, p) for i, p in enumerate(parts)), found
+
+
 def convert(md_path: Path, pdf_path: Path, browser: str) -> None:
     """Render one Markdown file to a PDF."""
+    text, formulas = protect_math(md_path.read_text(encoding="utf-8"))
     body = MarkdownIt("commonmark").enable(["table", "strikethrough"]).render(
-        fix_bold(md_path.read_text(encoding="utf-8"))).replace("<pre>", '<pre class="prism">')
+        fix_bold(text)).replace("<pre>", '<pre class="prism">')
+    for i, f in enumerate(formulas):
+        body = body.replace(f"MATHTOKEN{i}END", html.escape(f, quote=False))
     with tempfile.TemporaryDirectory() as tmp:
         page = Path(tmp) / "page.html"
         page.write_text(PAGE.format(title=md_path.stem, body=body, katex=KATEX,
