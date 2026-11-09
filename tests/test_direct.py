@@ -28,6 +28,34 @@ def test_direct_mode_skips_webvpn(monkeypatch):
     )
 
 
+def test_saved_session_is_restored_when_still_valid(monkeypatch, tmp_path):
+    monkeypatch.setattr(direct, "SESSION_FILE", str(tmp_path / "s.json"))
+    old = requests.Session()
+    old.cookies.set("PHPSESSID", "abc", domain="icourse.fudan.edu.cn", path="/")
+    direct.save_session(old)
+
+    ok = requests.Response()
+    ok.status_code, ok._content = 200, b'{"code": 0}'
+    monkeypatch.setattr(requests.Session, "get", lambda self, *a, **k: ok)
+    new = requests.Session()
+    assert direct.restore_session(new, "https://x/infosimple")
+    assert new.cookies.get("PHPSESSID") == "abc"
+
+
+def test_stale_or_missing_session_is_not_restored(monkeypatch, tmp_path):
+    monkeypatch.setattr(direct, "SESSION_FILE", str(tmp_path / "none.json"))
+    assert not direct.restore_session(requests.Session(), "https://x/infosimple")
+
+    monkeypatch.setattr(direct, "SESSION_FILE", str(tmp_path / "s.json"))
+    direct.save_session(requests.Session())
+    bad = requests.Response()
+    bad.status_code, bad._content = 200, b'{"code": 401}'
+    monkeypatch.setattr(requests.Session, "get", lambda self, *a, **k: bad)
+    fresh = requests.Session()
+    assert not direct.restore_session(fresh, "https://x/infosimple")
+    assert not fresh.cookies
+
+
 class _Reply:
     def __init__(self, data):
         self._data = data

@@ -4,10 +4,12 @@
 locally, so the unmodified ``WebVPNSession.authenticate_icourse`` flow runs as is.
 
 The same module also holds the fork's login extras: the QR second factor the IDP now
-demands (``qr_login``).
+demands (``qr_login``) and a saved login session (``save_session``/``restore_session``)
+so concurrent runs scan one QR code instead of one each.
 """
 
 import base64
+import json
 import os
 import time
 
@@ -15,6 +17,7 @@ import requests
 
 from src.runtime import config
 
+SESSION_FILE = os.path.join("temp", "icourse_session.json")
 QR_FILE = os.path.join("temp", "qr.jpg")
 QR_WAIT_S = 120
 
@@ -90,3 +93,31 @@ def qr_login(session, url_of, headers, payload, reply) -> str:
             if got.get("code") == 4005:  # "二维码已失效": ask for a fresh one
                 break
     raise RuntimeError("QR code was not scanned in time")
+
+
+def save_session(session: requests.Session) -> None:
+    """Write the logged-in cookies to ``SESSION_FILE`` for other runs."""
+    os.makedirs(os.path.dirname(SESSION_FILE), exist_ok=True)
+    jar = [
+        {"name": c.name, "value": c.value, "domain": c.domain, "path": c.path}
+        for c in session.cookies
+    ]
+    with open(SESSION_FILE, "w", encoding="utf-8") as f:
+        json.dump(jar, f)
+
+
+def restore_session(session: requests.Session, check_url: str) -> bool:
+    """Reuse the saved login if ``check_url`` still answers as logged in."""
+    probe = requests.Session()  # a stale file must not pollute the real session
+    probe.headers.update(session.headers)
+    try:
+        with open(SESSION_FILE, encoding="utf-8") as f:
+            for c in json.load(f):
+                probe.cookies.set(**c)
+        reply = probe.get(check_url, timeout=60)
+        if reply.status_code == 200 and reply.json().get("code") in (0, 200):
+            session.cookies.update(probe.cookies)
+            return True
+    except (OSError, ValueError, requests.RequestException):
+        pass
+    return False

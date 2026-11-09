@@ -186,6 +186,12 @@ class WebVPNSession:
         student_id = student_id or config.STUDENT_ID
         password = password or config.PASSWORD
 
+        if direct.restore_session(
+            self.session, get_vpn_url(f"{config.ICOURSE_BASE}/userapi/v1/infosimple")
+        ):
+            print("[*] Reusing the saved iCourse session.")
+            return True
+
         print("[*] Starting iCourse CAS authentication through WebVPN...")
 
         # Pre-flight: probe the WebVPN portal.  A cold session redirects to
@@ -372,6 +378,7 @@ class WebVPNSession:
                 if user_data.get("code") in (0, 200):
                     print("    Verified: login OK")
                     print("[*] iCourse authentication successful!")
+                    direct.save_session(self.session)
                     return True
             except Exception:
                 pass
