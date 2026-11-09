@@ -309,6 +309,13 @@ class WebVPNSession:
             )
 
         login_token = data.get("loginToken", "")
+        if not login_token and data.get("second"):  # the IDP wants a second factor
+            login_token = direct.qr_login(
+                self.session, get_vpn_url,
+                {"Content-Type": "application/json", "Referer": f"{idp_vpn_base}/ac/",
+                 "Origin": config.WEBVPN_BASE},
+                payload, data,
+            )
         if not login_token:
             raise RuntimeError("No loginToken in iCourse CAS response")
         print("    loginToken: OK")
